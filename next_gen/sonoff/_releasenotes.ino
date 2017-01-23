@@ -1,20 +1,29 @@
-/* 3.2.7 20170122
- * Move HLW interrupts back to RAM as it generates Exception on Pow (#264)
+/* 3.2.6b 20170122
+ * Fix status module number
+ * Change PowerOnState function to only trigger when Power On (and not just restart) (#238)
+ * Fix possible ESP8285 flash problem by updating Flash Chip Mode to DOUT during web upload
+ * Move HLW interrupts back to RAM and make WS2812_DMA optional as it generates Exception on Pow (#264)
  *
- * 3.2.6 20170119
+ * 3.2.6a 20170120
  * Fix Sonoff Pow compile error (#255)
- * Move HLW interrupts back to ROM
- *
- * 3.2.5 20170119
+ * Move HLW interrupts back to ROM (Needed for WS2812 DMA interrupts)
+ * Removed all IO config from user_config.h as this will be done by commands or webpage
+ * Removed MessageFormat and supports JSON only except POWER/LIGHT status
+ * Add command LedPower to control main led (#247)
  * Add more FriendlyNames for Hue (#254)
- * Add DMA support for WS2812 when using pin 3
- *
- * 3.2.4 20170118
+ * Add DMA support for WS2812 when using pin 3 while other pins work just as well in my case...
  * Add HUE emulation for Alexa (#229)
  * Add basic WS2812 support (#229)
- * 
- * 3.2.3 20170116
  * Fix Wemo when MQTT is disabled (#245)
+ * Revert ButtonTopic and change SwitchTopic1 - 4 to one SwitchTopic
+ * Rename MqttUnits to Units
+ * Add Mqtt command to enable/disable MQTT
+ *
+ * 3.2.2a 20170115
+ * Add dynamic (Sonoff) Module, user GPIO and sensor selection (one size fits (almost) all)
+ * Add support for Sonoff LED
+ * Add Seriallog disable after 600 seconds for Sonoff Dual and 4 Channel
+ * Add ButtonTopic2 - 4, SwitchTopic1 - 4 and SwitchRetain
  *
  * 3.2.2 20170113
  * Fix PowerOnState 2 functionality after re-applying power (#230)

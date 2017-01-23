@@ -87,8 +87,7 @@ const char HTTP_HEAD[] PROGMEM =
   "</head>"
   "<body>"
   "<div style='text-align:left;display:inline-block;min-width:260px;'>"
-  "<div style='text-align:center;'><h3>" APP_NAME "</h3><h2>{h}</h2></div>";
-//  "<div style='text-align:center;'><h3>" APP_NAME "</h3><h2>{h}</h2>({ha})</div><br/>";
+  "<div style='text-align:center;'><h3>{ha} Module</h3><h2>{h}</h2></div>";
 const char HTTP_MSG_RSTRT[] PROGMEM =
   "<br/><div style='text-align:center;'>Device will restart in a few seconds</div><br/>";
 const char HTTP_BTN_MENU1[] PROGMEM =
@@ -99,13 +98,15 @@ const char HTTP_BTN_MENU1[] PROGMEM =
 const char HTTP_BTN_RSTRT[] PROGMEM =
   "<br/><form action='/rb' method='post'><button>Restart</button></form>";
 const char HTTP_BTN_MENU2[] PROGMEM =
-  "<br/><form action='/w0' method='post'><button>Configure WiFi</button></form>"
-#ifdef USE_MQTT
+  "<br/><form action='/md' method='post'><button>Configure Module</button></form>"
+  "<br/><form action='/w0' method='post'><button>Configure WiFi</button></form>";
+const char HTTP_BTN_MENU3[] PROGMEM =
   "<br/><form action='/mq' method='post'><button>Configure MQTT</button></form>"
 #ifdef USE_DOMOTICZ
   "<br/><form action='/dm' method='post'><button>Configure Domoticz</button></form>"
 #endif  // USE_DOMOTICZ
-#endif  // USE_MQTT
+  "";
+const char HTTP_BTN_MENU4[] PROGMEM =
   "<br/><form action='/lg' method='post'><button>Configure Logging</button></form>"
   "<br/><form action='/co' method='post'><button>Configure Other</button></form>"
   "<br/><form action='/rt' method='post'><button>Reset Configuration</button></form>";
@@ -113,6 +114,10 @@ const char HTTP_BTN_MAIN[] PROGMEM =
   "<br/><br/><form action='/' method='post'><button>Main menu</button></form>";
 const char HTTP_BTN_CONF[] PROGMEM =
   "<br/><br/><form action='/cn' method='post'><button>Configuration menu</button></form>";
+const char HTTP_FORM_MODULE[] PROGMEM =
+  "<fieldset><legend><b>&nbsp;Module parameters&nbsp;</b></legend><form method='post' action='sv'>"
+  "<input id='w' name='w' value='6' hidden><input id='r' name='r' value='1' hidden>"
+  "<br/><b>Module type</b> ({mt})<br/><select id='mt' name='mt'>";
 const char HTTP_LNK_ITEM[] PROGMEM =
   "<div><a href='#p' onclick='c(this)'>{v}</a>&nbsp;<span class='q {i}'>{r}%</span></div>";
 const char HTTP_LNK_SCAN[] PROGMEM =
@@ -125,7 +130,6 @@ const char HTTP_FORM_WIFI[] PROGMEM =
   "<br/><b>AP2 SSId</b> (" STA_SSID2 ")<br/><input id='s2' name='s2' length=32 placeholder='" STA_SSID2 "' value='{s2}'><br/>"
   "<br/><b>AP2 Password</b></br><input id='p2' name='p2' length=64 type='password' placeholder='" STA_PASS2 "' value='{p2}'><br/>"
   "<br/><b>Hostname</b> ({h0})<br/><input id='h' name='h' length=32 placeholder='" WIFI_HOSTNAME" ' value='{h1}'><br/>";
-#ifdef USE_MQTT
 const char HTTP_FORM_MQTT[] PROGMEM =
   "<fieldset><legend><b>&nbsp;MQTT parameters&nbsp;</b></legend><form method='post' action='sv'>"
   "<input id='w' name='w' value='2' hidden><input id='r' name='r' value='1' hidden>"
@@ -145,7 +149,6 @@ const char HTTP_FORM_DOMOTICZ[] PROGMEM =
 const char HTTP_FORM_DOMOTICZ2[] PROGMEM =
   "<br/><b>Update timer</b> (" STR(DOMOTICZ_UPDATE_TIMER) ")<br/><input id='ut' name='ut' length=32 placeholder='" STR(DOMOTICZ_UPDATE_TIMER) "' value='{d7}'><br/>";
 #endif  // USE_DOMOTICZ
-#endif  // USE_MQTT
 const char HTTP_FORM_LOG1[] PROGMEM =
   "<fieldset><legend><b>&nbsp;Logging parameters&nbsp;</b></legend><form method='post' action='sv'>"
   "<input id='w' name='w' value='3' hidden><input id='r' name='r' value='0' hidden>";
@@ -163,8 +166,8 @@ const char HTTP_FORM_LOG3[] PROGMEM =
   "<br/><b>Telemetric period</b> (" STR(TELE_PERIOD) ")<br/><input id='lt' name='lt' length=4 placeholder='" STR(TELE_PERIOD) "' value='{l4}'><br/>";
 const char HTTP_FORM_OTHER[] PROGMEM =
   "<fieldset><legend><b>&nbsp;Other parameters&nbsp;</b></legend><form method='post' action='sv'>"
-  "<input id='w' name='w' value='5' hidden><input id='r' name='r' value='0' hidden>";
-//  "<br/><b>Friendly Name 1</b> (" FRIENDLY_NAME1 ")<br/><input id='an' name='an' length=32 placeholder='" FRIENDLY_NAME1 " ' value='{a1}'><br/>";
+  "<input id='w' name='w' value='5' hidden><input id='r' name='r' value='1' hidden>"
+  "<br/><input style='width:10%;float:left' id='r1' name='r1' type='checkbox'{r1}><b>MQTT enable</b><br/>";
 const char HTTP_FORM_END[] PROGMEM =
   "<br/><button type='submit'>Save</button></form></fieldset>";
 const char HTTP_FORM_UPG[] PROGMEM =
@@ -306,14 +309,15 @@ void startWebserver(int type, IPAddress ipweb)
       webServer = new ESP8266WebServer(80);
       webServer->on("/", handleRoot);
       webServer->on("/cn", handleConfig);
+      webServer->on("/md", handleModule);
       webServer->on("/w1", handleWifi1);
       webServer->on("/w0", handleWifi0);
-#ifdef USE_MQTT
-      webServer->on("/mq", handleMqtt);
+      if (sysCfg.mqtt_enabled) {
+        webServer->on("/mq", handleMqtt);
 #ifdef USE_DOMOTICZ
-      webServer->on("/dm", handleDomoticz);
+        webServer->on("/dm", handleDomoticz);
 #endif  // USE_DOMOTICZ
-#endif  // USE_MQTT
+      }
       webServer->on("/lg", handleLog);
       webServer->on("/co", handleOther);
       webServer->on("/sv", handleSave);
@@ -387,8 +391,9 @@ void pollDnsWeb()
 
 void showPage(String &page)
 {
+  page.replace("{ha}", my_module.name);
   page.replace("{h}", String(sysCfg.friendlyname[0]));
-  page.replace("{ha}", Hostname);
+//  page.replace("{ha}", Hostname);
   if (_httpflag == HTTP_MANAGER) {
     if (WIFI_configCounter()) {
       page.replace("<body>", "<body onload='u()'>");
@@ -416,7 +421,7 @@ void handleRoot()
   } else {
 
     String page = FPSTR(HTTP_HEAD);
-//    page.replace("<meta", "<meta http-equiv=\"refresh\" content=\"4; URL=/\"><meta");                   // Fails Edge (asks for reload)
+//    page.replace("<meta", "<meta http-equiv=\"refresh\" content=\"4; URL=/\"><meta");                    // Fails Edge (asks for reload)
 //    page.replace("</script>", "setTimeout(function(){window.location.reload(1);},4000);</script>");     // Repeats POST on All
     page.replace("</script>", "setTimeout(function(){window.location.replace(\"/\");},4000);</script>");  // OK on All
     page.replace("{v}", "Main menu");
@@ -447,23 +452,23 @@ void handleRoot()
     }
 
     String tpage = "";
-#ifdef USE_POWERMONITOR
-    tpage += hlw_webPresent();
-#endif  // USE_POWERMONITOR
-#ifdef SEND_TELEMETRY_DS18B20
-    tpage += dsb_webPresent();
-#endif  // SEND_TELEMETRY_DS18B20
-#ifdef SEND_TELEMETRY_DS18x20
-    tpage += ds18x20_webPresent();
-#endif  // SEND_TELEMETRY_DS18x20
-#if defined(SEND_TELEMETRY_DHT) || defined(SEND_TELEMETRY_DHT2)
-    tpage += dht_webPresent();
-#endif  // SEND_TELEMETRY_DHT/2
-#if defined(SEND_TELEMETRY_I2C)
-    tpage += htu_webPresent();
-    tpage += bmp_webPresent();
-    tpage += bh1750_webPresent();
-#endif  // SEND_TELEMETRY_I2C
+    if (hlw_flg) tpage += hlw_webPresent();
+#ifdef USE_DS18B20
+    if (pin[GPIO_DSB] < 99) tpage += dsb_webPresent();
+#endif  // USE_DS18B20
+#ifdef USE_DS18x20
+    if (pin[GPIO_DSB] < 99) page += ds18x20_webPresent();
+#endif  // USE_DS18x20
+#if defined(USE_DHT) || defined(USE_DHT2)
+    if (dht_type) tpage += dht_webPresent();
+#endif  // USE_DHT/2
+#ifdef USE_I2C
+    if (i2c_flg) {
+      tpage += htu_webPresent();
+      tpage += bmp_webPresent();
+      tpage += bh1750_webPresent();
+    }
+#endif  // USE_I2C    
     if (tpage.length() > 0) {
       page += F("<table style='width:100%'>");
       page += tpage;
@@ -476,10 +481,10 @@ void handleRoot()
     }
     showPage(page);
 
-#ifdef SEND_TELEMETRY_DS18x20
+#ifdef USE_DS18x20
     ds18x20_search();      // Check for changes in sensors number
     ds18x20_convert();     // Start Conversion, takes up to one second
-#endif  // SEND_TELEMETRY_DS18x20
+#endif  // USE_DS18x20
   }
 }
 
@@ -494,7 +499,58 @@ void handleConfig()
   String page = FPSTR(HTTP_HEAD);
   page.replace("{v}", "Configuration");
   page += FPSTR(HTTP_BTN_MENU2);
+  if (sysCfg.mqtt_enabled)  page += FPSTR(HTTP_BTN_MENU3);
+  page += FPSTR(HTTP_BTN_MENU4);
   page += FPSTR(HTTP_BTN_MAIN);
+  showPage(page);
+}
+
+void handleModule()
+{
+  if (_httpflag == HTTP_USER) {
+    handleRoot();
+    return;
+  }
+
+  char stemp[20];
+  
+  addLog_P(LOG_LEVEL_DEBUG, PSTR("HTTP: Handle Module config"));
+
+  String page = FPSTR(HTTP_HEAD);
+  page.replace("{v}", "Config module");
+  page += FPSTR(HTTP_FORM_MODULE);
+
+  snprintf_P(stemp, sizeof(stemp), modules[MODULE].name);
+  page.replace("{mt}", stemp);
+
+  for (byte i = 0; i < MAXMODULE; i++) {
+    page += F("<option ");
+    if (i == sysCfg.module) page += F("selected ");
+    snprintf_P(stemp, sizeof(stemp), modules[i].name);
+    page += F("value='"); page += String(i); page += F("'>"); page += String(i +1); page += F(" "); page += stemp; page += F("</option>");
+  }
+  page += F("</select></br>");
+
+  mytmplt cmodule;
+  memcpy_P(&cmodule, &modules[sysCfg.module], sizeof(cmodule));
+  for (byte i = 0; i < MAX_GPIO_PIN; i++) {
+    if (cmodule.gp.io[i] == GPIO_USER) {
+      page += F("<br/><b>GPIO"); page += String(i); page += F("</b> <select id='g"); page += String(i); page += F("' name='g"); page += String(i); page += F("'>");
+      byte k = 0;
+      for (byte j = GPIO_SENSOR_START; j < GPIO_SENSOR_END; j++) {
+        page += F("<option ");
+        if (j == my_module.gp.io[i]) page += F("selected ");
+        page += F("value='"); page += String(j); page += F("'>");
+        page += String(j); page += F(" ");
+        snprintf_P(stemp, sizeof(stemp), sensors[j]);
+        page += stemp;  page += F("</option>");
+      }
+      page += F("</select></br>");
+    }
+  }
+
+  page += FPSTR(HTTP_FORM_END);
+  page += FPSTR(HTTP_BTN_CONF);
   showPage(page);
 }
 
@@ -617,7 +673,6 @@ void handleWifi(boolean scan)
   showPage(page);
 }
 
-#ifdef USE_MQTT
 void handleMqtt()
 {
   if (_httpflag == HTTP_USER) {
@@ -677,7 +732,6 @@ void handleDomoticz()
   showPage(page);
 }
 #endif  // USE_DOMOTICZ
-#endif  // USE_MQTT
 
 void handleLog()
 {
@@ -739,6 +793,7 @@ void handleOther()
   String page = FPSTR(HTTP_HEAD);
   page.replace("{v}", "Configure Other");
   page += FPSTR(HTTP_FORM_OTHER);
+  page.replace("{r1}", (sysCfg.mqtt_enabled) ? " checked" : "");
   for (byte i = 0; i < Maxdevice; i++) {
     page += F("<br/><b>Friendly Name ");
     page += i +1;
@@ -772,7 +827,7 @@ void handleSave()
     handleRoot();
     return;
   }
-  char log[LOGSZ];
+  char log[LOGSZ], stemp[20];
   byte what = 0, restart;
   String result = "";
 
@@ -816,7 +871,6 @@ void handleSave()
       sysCfg.seriallog_level, sysCfg.weblog_level, sysCfg.syslog_level, sysCfg.syslog_host, sysCfg.syslog_port, sysCfg.tele_period);
     addLog(LOG_LEVEL_INFO, log);
     break;
-#ifdef USE_MQTT
 #ifdef USE_DOMOTICZ
   case 4:
     strlcpy(sysCfg.domoticz_in_topic, (!strlen(webServer->arg("it").c_str())) ? DOMOTICZ_IN_TOPIC : webServer->arg("it").c_str(), sizeof(sysCfg.domoticz_in_topic));
@@ -832,14 +886,30 @@ void handleSave()
     addLog(LOG_LEVEL_INFO, log);
     break;
 #endif  // USE_DOMOTICZ
-#endif  // USE_MQTT
   case 5:
+    sysCfg.mqtt_enabled = webServer->hasArg("r1");
     strlcpy(sysCfg.friendlyname[0], (!strlen(webServer->arg("a1").c_str())) ? FRIENDLY_NAME1 : webServer->arg("a1").c_str(), sizeof(sysCfg.friendlyname[0]));
     strlcpy(sysCfg.friendlyname[1], (!strlen(webServer->arg("a2").c_str())) ? FRIENDLY_NAME2 : webServer->arg("a2").c_str(), sizeof(sysCfg.friendlyname[1]));
     strlcpy(sysCfg.friendlyname[2], (!strlen(webServer->arg("a3").c_str())) ? FRIENDLY_NAME3 : webServer->arg("a3").c_str(), sizeof(sysCfg.friendlyname[2]));
     strlcpy(sysCfg.friendlyname[3], (!strlen(webServer->arg("a4").c_str())) ? FRIENDLY_NAME4 : webServer->arg("a4").c_str(), sizeof(sysCfg.friendlyname[3]));
-    snprintf_P(log, sizeof(log), PSTR("HTTP: Other Friendly Names %s, %s, %s and %s"),
-      sysCfg.friendlyname[0], sysCfg.friendlyname[1], sysCfg.friendlyname[2], sysCfg.friendlyname[3]);
+    snprintf_P(log, sizeof(log), PSTR("HTTP: Other MQTT Enable %s, Friendly Names %s, %s, %s and %s"),
+      (sysCfg.mqtt_enabled) ? MQTT_STATUS_ON : MQTT_STATUS_OFF, sysCfg.friendlyname[0], sysCfg.friendlyname[1], sysCfg.friendlyname[2], sysCfg.friendlyname[3]);
+    addLog(LOG_LEVEL_INFO, log);
+    break;
+  case 6:
+    sysCfg.module = (!strlen(webServer->arg("mt").c_str())) ? MODULE : atoi(webServer->arg("mt").c_str());
+    mytmplt cmodule;
+    memcpy_P(&cmodule, &modules[sysCfg.module], sizeof(cmodule));
+    String gpios = "";
+    for (byte i = 0; i < MAX_GPIO_PIN; i++) {
+      if (cmodule.gp.io[i] == GPIO_USER) {
+        snprintf_P(stemp, sizeof(stemp), PSTR("g%d"), i);
+        sysCfg.my_module.gp.io[i] = (!strlen(webServer->arg(stemp).c_str())) ? 0 : atoi(webServer->arg(stemp).c_str());
+        gpios += F(", GPIO"); gpios += String(i); gpios += F(" "); gpios += String(sysCfg.my_module.gp.io[i]);
+      }
+    }
+    snprintf_P(stemp, sizeof(stemp), modules[sysCfg.module].name);
+    snprintf_P(log, sizeof(log), PSTR("HTTP: %s Module%s"), stemp, gpios.c_str());
     addLog(LOG_LEVEL_INFO, log);
     break;
   }
@@ -983,7 +1053,7 @@ void handleUploadLoop()
 {
   // Based on ESP8266HTTPUpdateServer.cpp uses ESP8266WebServer Parsing.cpp and Cores Updater.cpp (Update)
   char log[LOGSZ];
-  boolean _serialoutput = (LOG_LEVEL_DEBUG <= sysCfg.seriallog_level);
+  boolean _serialoutput = (LOG_LEVEL_DEBUG <= seriallog_level);
 
   if (_httpflag == HTTP_USER) return;
   if (_uploaderror) {
@@ -1004,9 +1074,7 @@ void handleUploadLoop()
 #if defined(USE_WEMO_EMULATION) || defined(USE_HUE_EMULATION)
     UDP_Disconnect();
 #endif  // USE_WEMO_EMULATION || USE_HUE_EMULATION
-#ifdef USE_MQTT
-    mqttClient.disconnect();
-#endif  // USE_MQTT
+    if (sysCfg.mqtt_enabled) mqttClient.disconnect();
 
     snprintf_P(log, sizeof(log), PSTR("Upload: File %s ..."), upload.filename.c_str());
     addLog(LOG_LEVEL_INFO, log);
@@ -1032,6 +1100,13 @@ void handleUploadLoop()
         _uploaderror = 4;
         return;
       }
+      if ((sysCfg.module == SONOFF_TOUCH) || (sysCfg.module == SONOFF_4CH)) {
+        upload.buf[2] = 3; // DOUT - ESP8285
+      } else {
+        upload.buf[2] = 2; // DIO - ESP8266
+      }
+//      snprintf_P(log, sizeof(log), PSTR("Upload: Flash Chip Mode %02X"), upload.buf[2]);
+//      addLog(LOG_LEVEL_DEBUG, log);
     }
     if (!_uploaderror && (Update.write(upload.buf, upload.currentSize) != upload.currentSize)) {
       if (_serialoutput) Update.printError(Serial);
@@ -1085,14 +1160,14 @@ void handleCmnd()
     do {
       if (Log[counter].length()) {
         if (message.length()) message += F("\n");
-#ifdef USE_MQTT
-        // [14:49:36 MQTT: stat/wemos5/RESULT = {"POWER":"OFF"}] > [RESULT = {"POWER":"OFF"}]
-//        message += Log[counter].substring(17 + strlen(PUB_PREFIX) + strlen(sysCfg.mqtt_topic));
-        message += Log[counter].substring(Log[counter].lastIndexOf("/",Log[counter].indexOf("="))+1);
-#else
-        // [14:49:36 RSLT: RESULT = {"POWER":"OFF"}] > [RESULT = {"POWER":"OFF"}]
-        message += Log[counter].substring(Log[counter].indexOf(": ")+2);
-#endif  // USE_MQTT
+        if (sysCfg.mqtt_enabled) {
+          // [14:49:36 MQTT: stat/wemos5/RESULT = {"POWER":"OFF"}] > [RESULT = {"POWER":"OFF"}]
+//          message += Log[counter].substring(17 + strlen(PUB_PREFIX) + strlen(sysCfg.mqtt_topic));
+          message += Log[counter].substring(Log[counter].lastIndexOf("/",Log[counter].indexOf("="))+1);
+        } else {
+          // [14:49:36 RSLT: RESULT = {"POWER":"OFF"}] > [RESULT = {"POWER":"OFF"}]
+          message += Log[counter].substring(Log[counter].indexOf(": ")+2);
+        }
       }
       counter++;
       if (counter > MAX_LOG_LINES -1) counter = 0;
@@ -1203,17 +1278,17 @@ void handleInfo()
     page += F("<tr><td><b>AP MAC address</b></td><td>"); page += WiFi.softAPmacAddress(); page += F("</td></tr>");
   }
   page += F("<tr><td>&nbsp;</td></tr>");
-#ifdef USE_MQTT
-  page += F("<tr><td><b>MQTT Host</b></td><td>"); page += sysCfg.mqtt_host; page += F("</td></tr>");
-  page += F("<tr><td><b>MQTT Port</b></td><td>"); page += String(sysCfg.mqtt_port); page += F("</td></tr>");
-  page += F("<tr><td><b>MQTT Client and<br/>&nbsp;Fallback Topic</b></td><td>"); page += MQTTClient; page += F("</td></tr>");
-  page += F("<tr><td><b>MQTT User</b></td><td>"); page += sysCfg.mqtt_user; page += F("</td></tr>");
-//  page += F("<tr><td><b>MQTT Password</b></td><td>"); page += sysCfg.mqtt_pwd; page += F("</td></tr>");
-  page += F("<tr><td><b>MQTT Topic</b></td><td>"); page += sysCfg.mqtt_topic; page += F("</td></tr>");
-  page += F("<tr><td><b>MQTT Group Topic</b></td><td>"); page += sysCfg.mqtt_grptopic; page += F("</td></tr>");
-#else
-  page += F("<tr><td><b>MQTT</b></td><td>Disabled</td></tr>");
-#endif  // USE_MQTT
+  if (sysCfg.mqtt_enabled) {
+    page += F("<tr><td><b>MQTT Host</b></td><td>"); page += sysCfg.mqtt_host; page += F("</td></tr>");
+    page += F("<tr><td><b>MQTT Port</b></td><td>"); page += String(sysCfg.mqtt_port); page += F("</td></tr>");
+    page += F("<tr><td><b>MQTT Client and<br/>&nbsp;Fallback Topic</b></td><td>"); page += MQTTClient; page += F("</td></tr>");
+    page += F("<tr><td><b>MQTT User</b></td><td>"); page += sysCfg.mqtt_user; page += F("</td></tr>");
+//    page += F("<tr><td><b>MQTT Password</b></td><td>"); page += sysCfg.mqtt_pwd; page += F("</td></tr>");
+    page += F("<tr><td><b>MQTT Topic</b></td><td>"); page += sysCfg.mqtt_topic; page += F("</td></tr>");
+    page += F("<tr><td><b>MQTT Group Topic</b></td><td>"); page += sysCfg.mqtt_grptopic; page += F("</td></tr>");
+  } else {
+    page += F("<tr><td><b>MQTT</b></td><td>Disabled</td></tr>");
+  }
   page += F("<tr><td>&nbsp;</td></tr>");
   page += F("<tr><td><b>ESP Chip id</b></td><td>"); page += String(ESP.getChipId()); page += F("</td></tr>");
   page += F("<tr><td><b>Flash Chip id</b></td><td>"); page += String(ESP.getFlashChipId()); page += F("</td></tr>");
@@ -1275,10 +1350,11 @@ void handleUPnPsetup()
   addLog_P(LOG_LEVEL_DEBUG, PSTR("HTTP: Handle WeMo setup"));
 
   String setup_xml = FPSTR(WEMO_SETUP_XML);
+//  setup_xml.replace("{x1}", String(MQTTClient));
   setup_xml.replace("{x1}", String(sysCfg.friendlyname[0]));
   setup_xml.replace("{x2}", wemo_UUID());
   setup_xml.replace("{x3}", wemo_serial());
-  webServer->send(200, "text/plain", setup_xml);
+  webServer->send(200, "text/xml", setup_xml);
 }
 #endif  // USE_WEMO_EMULATION
 
@@ -1288,7 +1364,6 @@ void handleUPnPsetup()
 String hue_deviceId(uint8_t id)
 {
   char deviceid[16];
-  
   snprintf_P(deviceid, sizeof(deviceid), PSTR("5CCF7F%03X-%0d"), ESP.getChipId(), id);
   return String(deviceid);
 }
@@ -1311,8 +1386,8 @@ void handle_hue_api(String path)
    
   char log[LOGSZ];
   String response;
-  String command = path;
-  uint8_t device = 1;
+  String command=path;
+  uint8_t device=1;
   char id[4];
 
   command.remove(0, command.indexOf("/lights") +7); // remove all including lights cmd

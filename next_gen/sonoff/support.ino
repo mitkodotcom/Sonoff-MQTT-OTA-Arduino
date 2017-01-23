@@ -195,7 +195,7 @@ void CFG_Erase()
 
   uint32_t _sectorStart = (ESP.getSketchSize() / SPI_FLASH_SEC_SIZE) + 1;
   uint32_t _sectorEnd = ESP.getFlashChipRealSize() / SPI_FLASH_SEC_SIZE;
-  boolean _serialoutput = (LOG_LEVEL_DEBUG_MORE <= sysCfg.seriallog_level);
+  boolean _serialoutput = (LOG_LEVEL_DEBUG_MORE <= seriallog_level);
 
   snprintf_P(log, sizeof(log), PSTR("Config: Erasing %d flash sectors"), _sectorEnd - _sectorStart);
   addLog(LOG_LEVEL_DEBUG, log);
@@ -295,6 +295,26 @@ void initSpiffs()
 }
 #endif  // USE_SPIFFS
 
+/*
+void setFlashChipMode(byte mode)
+{
+  char log[LOGSZ];
+  uint32_t data;
+  
+  uint8_t * bytes = (uint8_t *) &data;
+  // read first 4 byte (magic byte + flash config)
+  if (spi_flash_read(0x0000, &data, 4) == SPI_FLASH_RESULT_OK) {
+
+    snprintf_P(log, sizeof(log), PSTR("FLSH: Magic byte and flash config %08X"), data);
+    addLog(LOG_LEVEL_DEBUG, log);
+    
+    if (bytes[2] != mode) {
+      bytes[2] = mode &3;
+//      spi_flash_write(0x0000, &data, 4);
+    }
+  }
+}
+*/
 /*********************************************************************************************\
  * Wifi
 \*********************************************************************************************/
@@ -622,7 +642,7 @@ void IPtoCharArray(IPAddress address, char *ip_str, size_t size)
  * Basic I2C routines
 \*********************************************************************************************/
 
-#ifdef SEND_TELEMETRY_I2C
+#ifdef USE_I2C
 #define I2C_RETRY_COUNTER 3
 
 int32_t i2c_read(uint8_t addr, uint8_t reg, uint8_t size)
@@ -716,7 +736,7 @@ void i2c_scan(char *devs, unsigned int devs_len)
     snprintf_P(devs, devs_len, PSTR("{\"I2Cscan\":\"No devices found\"}"));
   }
 }
-#endif //SEND_TELEMETRY_I2C
+#endif  // USE_I2C
 
 /*********************************************************************************************\
  * Real Time Clock
@@ -980,7 +1000,7 @@ void addLog(byte loglevel, const char *line)
 #ifdef DEBUG_ESP_PORT
   DEBUG_ESP_PORT.printf("%s %s\n", mxtime, line);
 #endif  // DEBUG_ESP_PORT
-  if (loglevel <= sysCfg.seriallog_level) Serial.printf("%s %s\n", mxtime, line);
+  if (loglevel <= seriallog_level) Serial.printf("%s %s\n", mxtime, line);
 #ifdef USE_WEBSERVER
   if (loglevel <= sysCfg.weblog_level) {
     Log[logidx] = String(mxtime) + " " + String(line);
